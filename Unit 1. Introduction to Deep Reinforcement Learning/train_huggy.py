@@ -12,6 +12,8 @@ except ImportError:
 import shutil
 import sys
 
+subprocess.run('pip install wandb'.split(' '), check=True)
+
 try:
   from dotenv import load_dotenv
 except ImportError:
@@ -19,10 +21,14 @@ except ImportError:
   from dotenv import load_dotenv
 load_dotenv('/content/drive/MyDrive/.env')
 
+assert os.environ.get('WANDB_API_KEY') is not None
+subprocess.run(["wandb", "login", os.environ["WANDB_API_KEY"]], check=True)
+
 assert os.environ.get('HF_TOKEN') is not None
-os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ.get('HF_TOKEN')
+os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ.get('HF_TOKEN')ß
 assert os.environ["HUGGING_FACE_HUB_TOKEN"] is not None
-subprocess.run(["hf", "auth", "login"])
+subprocess.run(["hf", "auth", "login", "--token", os.environ["HF_TOKEN"]], check=True)
+
 
 
 start_time = time.perf_counter()
@@ -101,7 +107,9 @@ def python_310_venv_setup():
         # Change to ml-agents directory
         ml_agents_dir = os.path.abspath('./ml-agents')
         run_command([env_pip, 'install', '-e', './ml-agents-envs'], cwd=ml_agents_dir)
-        run_command([env_pip, 'install', '-e', './ml-agents'], cwd=ml_agents_dir)
+        # run_command([env_pip, 'install', '-e', './ml-agents'], cwd=ml_agents_dir)
+        # run_command([env_pip, 'install', '-e', './ml-agents[wandb]'], cwd=ml_agents_dir)
+        run_command([env_pip, 'install', '-e', './ml-agents[wandb]', '--use-pep517'], cwd=ml_agents_dir)
         
         print(f"\n{'='*10}INSTALLATION COMPLETE{'='*10}")
         print(f"Python 3.10.12 installed at: {env_python}")
@@ -152,6 +160,10 @@ except subprocess.CalledProcessError:
     print("❌ ML-Agents import failed!")
     sys.exit(1)
 
+# Clean up existing ml-agents directory
+if os.path.exists('./trained-envs-executables'):
+    print("Removing existing trained-envs-executables directory...")
+    shutil.rmtree('./trained-envs-executables')
 # Create directories for executables
 print("Creating directories for executables...")
 os.makedirs('./trained-envs-executables/linux', exist_ok=True)
@@ -197,6 +209,12 @@ try:
         '--env=' + huggy_env_path,
         '--run-id=Huggy2',
         '--no-graphics'
+        '--wandb'
+        # # --- ADDED FOR WANDB INTEGRATION ---
+        # '--wandb',
+        # '--project=huggy-ppo-rl', # Replace with your W&B project name
+        # '--group=huggy-training-run',    # Optional: Group multiple runs together
+        # '--entity=anton-andreitsev-constructor',   # Optional: Your W&B username
     ]
     
     print(f"Training command: {' '.join(training_cmd)}")
